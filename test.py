@@ -40,7 +40,7 @@ def write_to_file(rows, filename):
     # Write results to a CSV file
     try:
         filepath = os.path.join(LOCATION_FOLDER, filename + ".dat")
-        with open(filename, "w", encoding="utf-8") as f:
+        with open(filepath, "w", encoding="utf-8") as f:
             for row in rows:
                 f.write(" ".join(map(str, row)) + "\n") # print space between each column
         print(f"Results written to {filepath}")
@@ -60,13 +60,23 @@ def close_connection(mydb, cursor):
 if __name__ == "__main__":
     mydb, cursor = make_connection()
     if mydb and cursor != None:
+        # Extract enrollments data
         enrollment_rows, enrollment_headers = run_query(cursor, "SELECT * FROM eftps_enrollments_stage")
         if enrollment_rows:
+            # Generate file name
             file_date = str(enrollment_rows[0][enrollment_headers.index("file_date")])
             file_seq_num = str(enrollment_rows[0][enrollment_headers.index("file_sequence_number")])
-            
+            enrollment_name = f"eftps_enrollments_{file_date}_{file_seq_num}"
+            write_to_file(enrollment_rows, enrollment_name)
 
+        # Extract payments data
+        payment_rows, payment_headers = run_query(cursor, "SELECT * FROM eftps_payments_stage")
+        if payment_rows:
+            # Generate file name
+            file_date = str(payment_rows[0][payment_headers.index("file_date")])
+            file_seq_num = str(payment_rows[0][payment_headers.index("file_sequence_number")])
+            payment_name = f"eftps_payments_{file_date}_{file_seq_num}"
+            write_to_file(payment_rows, payment_name)
 
-        # write_to_file(cursor, "output.csv")
-        # close_connection(mydb, cursor)
-        # write_to_file
+        close_connection(mydb, cursor)
+
