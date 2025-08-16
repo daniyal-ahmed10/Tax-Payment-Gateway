@@ -1,4 +1,5 @@
-Tax Payment Gateway
+# Tax Payment Gateway
+
 The Tax Payment Gateway is a middleware service that bridges payroll systems with the EFTPS (Electronic Federal Tax Payment System), enabling automated and reliable federal tax payments.
 It simplifies compliance, reduces manual effort, and ensures secure, timely submissions of payroll-related taxes.
 
