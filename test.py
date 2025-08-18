@@ -48,13 +48,13 @@ def run_query(cursor, query):
 #         print(f"Error writing to file: {e}")
 
 def write_to_file(rows, filename):
-    """Write rows to a neatly aligned text file"""
+    # Write results to a .dat file
     if not rows:
         return
     
     filepath = os.path.join(LOCATION_FOLDER, filename + ".dat")
     
-    # Calculate max width for each column
+    # find max width for each column
     col_widths = [max(len(str(row[i])) for row in rows) for i in range(len(rows[0]))]
     
     try:
