@@ -36,16 +36,36 @@ def run_query(cursor, query):
         return [], []
 
 
+# def write_to_file(rows, filename):
+#     # Write results to a CSV file
+#     try:
+#         filepath = os.path.join(LOCATION_FOLDER, filename + ".dat")
+#         with open(filepath, "w", encoding="utf-8") as f:
+#             for row in rows:
+#                 f.write(" ".join(map(str, row)) + "\n") # print space between each column
+#         print(f"Results written to {filepath}")
+#     except Exception as e:
+#         print(f"Error writing to file: {e}")
+
 def write_to_file(rows, filename):
-    # Write results to a CSV file
+    """Write rows to a neatly aligned text file"""
+    if not rows:
+        return
+    
+    filepath = os.path.join(LOCATION_FOLDER, filename + ".dat")
+    
+    # Calculate max width for each column
+    col_widths = [max(len(str(row[i])) for row in rows) for i in range(len(rows[0]))]
+    
     try:
-        filepath = os.path.join(LOCATION_FOLDER, filename + ".dat")
         with open(filepath, "w", encoding="utf-8") as f:
             for row in rows:
-                f.write(" ".join(map(str, row)) + "\n") # print space between each column
-        print(f"Results written to {filepath}")
+                line = "  ".join(str(val).ljust(col_widths[i]) for i, val in enumerate(row))
+                f.write(line + "\n")
+        print(f"File written: {filepath}")
     except Exception as e:
         print(f"Error writing to file: {e}")
+
 
 def close_connection(mydb, cursor):
     # Close connection 
@@ -79,4 +99,3 @@ if __name__ == "__main__":
             write_to_file(payment_rows, payment_name)
 
         close_connection(mydb, cursor)
-
