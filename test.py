@@ -2,7 +2,8 @@ import mysql.connector
 import os
 
 # Configuration
-LOCATION_FOLDER = r"C:\Temp\EFTPS"
+LOCATION_FOLDER = r"C:\Temp\EFTPS" 
+# LOCATION_FOLDER = r"C:WrongFolder"       # test
 
 DB_CONFIG = {
     "host": "localhost",
@@ -13,6 +14,63 @@ DB_CONFIG = {
 
 
 # Functions
+
+# write log errors function
+def log_errors(table, error_code, error_message, **kwargs):
+    """
+    Universal error logging function for all types of errors.
+    Can be used for connection, query, file, or data errors.
+    """
+    # Ensure error_code is max 3 chars
+    error_code = str(error_code)[:3]
+
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+
+        if table == "enrollment_errors":
+            query = """
+                INSERT INTO enrollment_errors
+                (file_date, file_sequence_number, taxpayer_tin, taxpayer_pin, error_code, error_message)
+                VALUES (%s, %s, %s, %s, %s, %s)
+            """
+            values = (
+                kwargs.get("file_date"),
+                kwargs.get("file_sequence_number"),
+                kwargs.get("taxpayer_tin"),
+                kwargs.get("taxpayer_pin"),
+                error_code,
+                error_message
+            )
+
+        elif table == "payments_errors":
+            query = """
+                INSERT INTO payments_errors
+                (file_date, file_sequence_number, taxpayer_tin, error_code, error_message)
+                VALUES (%s, %s, %s, %s, %s)
+            """
+            values = (
+                kwargs.get("file_date"),
+                kwargs.get("file_sequence_number"),
+                kwargs.get("taxpayer_tin"),
+                error_code,
+                error_message
+            )
+        else:
+            print(f"Invalid table for logging: {table}")
+            return
+
+        cursor.execute(query, values)
+        conn.commit()
+        cursor.close()
+        conn.close()
+        print(f"Logged error to {table}: {error_code} - {error_message}")
+
+    except mysql.connector.Error as e:
+        # If connection failed, print a message (cannot log to DB)
+        print(f"Could not log to DB: {e} | Original error: {error_code} - {error_message}")
+
+
 def make_connection():
     # Establish MySQL connection and cursor 
     try:
@@ -21,11 +79,7 @@ def make_connection():
         return mydb, mydb.cursor()
     except mysql.connector.Error as err:
         print(f"Error: {err}")
-        log_errors(
-            table="enrollment_errors",  # fallback table
-            error_code="CONN",
-            error_message=str(err)
-        )
+        log_errors("enrollment_errors", "CON", str(err))
         return None, None
 
 
@@ -49,15 +103,13 @@ def run_query(cursor, query, table_name=None, file_date=None, file_sequence_numb
         return [], []
 
 
-def write_to_file(rows, filename, headers, file_date=None, file_sequence_number=None):
+def write_to_file(rows, filename, headers, table_name, file_date=None, file_sequence_number=None):
     # Write results to a .dat file
     if not rows:
         return
     
     filepath = os.path.join(LOCATION_FOLDER, filename + ".dat")
-
-    # Determine table type
-    table_name = "enrollment_errors" if "taxpayer_pin" in headers else "payments_errors"
+    os.makedirs(os.path.dirname(filepath), exist_ok=True)
 
     
     # find max width for each column
@@ -70,7 +122,7 @@ def write_to_file(rows, filename, headers, file_date=None, file_sequence_number=
             if tin_index is not None and not row[tin_index]:
                 log_errors(
                     table=table_name,
-                    error_code="DATA",
+                    error_code="DAT",
                     error_message="Missing taxpayer TIN",
                     file_date=file_date,
                     file_sequence_number=file_sequence_number,
@@ -93,48 +145,6 @@ def write_to_file(rows, filename, headers, file_date=None, file_sequence_number=
                 file_sequence_number=file_sequence_number
             )
 
-
-# write log errors function
-def log_errors(table, error_code, error_message, **kwargs):
-    conn = mysql.connector.connect(**DB_CONFIG)
-    cursor = conn.cursor()
-
-    if table == "enrollment_errors":
-        query = """
-            INSERT INTO enrollment_errors
-            (file_date, file_sequence_number, taxpayer_tin, taxpayer_pin, error_code, error_message)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """
-        values = (
-            kwargs.get("file_date"),
-            kwargs.get("file_sequence_number"),
-            kwargs.get("taxpayer_tin"),
-            kwargs.get("taxpayer_pin"),
-            error_code,
-            error_message
-        )
-    elif table == "payments_errors":
-        query = """
-            INSERT INTO payments_errors
-            (file_date, file_sequence_number, taxpayer_tin, taxpayer_pin, error_code, error_message)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        values = (
-            kwargs.get("file_date"),
-            kwargs.get("file_sequence_number"),
-            kwargs.get("taxpayer_tin"),
-            kwargs.get("taxpayer_pin"),
-            error_code,
-            error_message
-        )
-    else:
-        raise ValueError("Invalid table name")
-
-    cursor.execute(query, values)
-    conn.commit()
-    cursor.close()
-    conn.close()
-
 def close_connection(mydb, cursor):
     # Close connection 
     if cursor != None:
@@ -149,7 +159,7 @@ if __name__ == "__main__":
     mydb, cursor = make_connection()
     if mydb and cursor != None:
         # Extract enrollments data
-        enrollment_rows, enrollment_headers = run_query(cursor, "SELECT * FROM eftps_enrollments_stag", table_name = "enrollment_errors")
+        enrollment_rows, enrollment_headers = run_query(cursor, "SELECT * FROM eftps_enrollments_stage", table_name = "enrollment_errors")
         if enrollment_rows:
             # Generate file name
             file_date = str(enrollment_rows[0][enrollment_headers.index("file_date")])
@@ -159,11 +169,12 @@ if __name__ == "__main__":
                 enrollment_rows,
                 enrollment_name,
                 enrollment_headers,
+                table_name="enrollment_errors",
                 file_date=file_date,
                 file_sequence_number=file_seq_num
             )
         # Extract payments data
-        payment_rows, payment_headers = run_query(cursor, "SELECT * FROM eftps_payments_stage")
+        payment_rows, payment_headers = run_query(cursor, "SELECT * FROM eftps_payments_stage", table_name = "payment_errors")
         if payment_rows:
             # Generate file name
             file_date = str(payment_rows[0][payment_headers.index("file_date")])
@@ -173,6 +184,7 @@ if __name__ == "__main__":
                 payment_rows,
                 payment_name,
                 payment_headers,
+                table_name="payment_errors",
                 file_date=file_date,
                 file_sequence_number=file_seq_num
             )
