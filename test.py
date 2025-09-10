@@ -3,7 +3,6 @@ import os
 
 # Configuration
 LOCATION_FOLDER = r"C:\Temp\EFTPS" 
-# LOCATION_FOLDER = r"C:WrongFolder"       # test
 
 DB_CONFIG = {
     "host": "localhost",
@@ -21,8 +20,6 @@ def log_errors(table, error_code, error_message, **kwargs):
     Universal error logging function for all types of errors.
     Can be used for connection, query, file, or data errors.
     """
-    # Ensure error_code is max 3 chars
-    error_code = str(error_code)[:3]
 
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
